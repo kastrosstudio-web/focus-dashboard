@@ -1,1 +1,931 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A minimalist, distraction-free focus dashboard with a Pomodoro timer, a single-task focus field and natively generated ambient sound.">
+  <title>Minimalist Focus</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23a5b4fc' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='42 60'/%3E%3C/svg%3E">
+
+  <!-- ============================================================
+       GOOGLE ANALYTICS — PLACEHOLDER
+       Paste your Google tag (gtag.js) snippet here, e.g.:
+       <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+       <script>
+         window.dataLayer = window.dataLayer || [];
+         function gtag(){dataLayer.push(arguments);}
+         gtag('js', new Date());
+         gtag('config', 'G-XXXXXXXXXX');
+       </script>
+       ============================================================ -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --accent: #a5b4fc;
+      --accent-soft: rgba(165, 180, 252, 0.12);
+      --bg: #0f172a;
+    }
+    html {
+      background: var(--bg);
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background:
+        radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 70%),
+        var(--bg);
+      background-attachment: fixed;
+      transition: background-color .6s ease;
+    }
+    .safe-area {
+      padding-left: max(1.25rem, env(safe-area-inset-left));
+      padding-right: max(1.25rem, env(safe-area-inset-right));
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+    /* Progress ring */
+    .ring-track { stroke: rgba(148, 163, 184, 0.12); }
+    .ring-progress {
+      stroke: var(--accent);
+      transition: stroke-dashoffset .3s linear, stroke .6s ease, opacity .3s ease;
+      filter: drop-shadow(0 0 6px var(--accent-soft));
+    }
+    .is-running .ring-glow { opacity: 1; }
+    .ring-glow { opacity: 0; transition: opacity .8s ease; }
+
+    /* Range slider (cross-browser) */
+    .range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 50%), rgba(148,163,184,.18) var(--fill, 50%), rgba(148,163,184,.18) 100%);
+      outline: none;
+      cursor: pointer;
+    }
+    .range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(15, 23, 42, .85);
+      transition: transform .15s ease;
+    }
+    .range::-webkit-slider-thumb:hover { transform: scale(1.12); }
+    .range::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(15, 23, 42, .85);
+    }
+    .range::-moz-range-track { background: transparent; }
+    .range:focus-visible { outline: 2px solid var(--accent); outline-offset: 8px; }
+
+    /* Number inputs */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] .chev { transform: rotate(180deg); }
+
+    @keyframes softPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+    .pulse { animation: softPulse 2.4s ease-in-out infinite; }
+
+    @keyframes doneFlash { 0% { opacity: .0; } 30% { opacity: .9; } 100% { opacity: 0; } }
+    .flash { animation: doneFlash 1.6s ease-out; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+
+<body class="min-h-full font-sans text-slate-200 antialiased selection:bg-indigo-300/30">
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-slate-800 focus:px-4 focus:py-2 focus:text-sm">Skip to content</a>
+
+  <div class="safe-area mx-auto flex min-h-screen min-h-[100dvh] max-w-6xl flex-col sm:px-8">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between pb-4 pt-6 sm:pt-8" style="padding-top: max(1.5rem, env(safe-area-inset-top));">
+      <div class="flex items-center gap-2.5">
+        <span id="modeDot" class="h-2 w-2 rounded-full bg-[var(--accent)] transition-colors duration-500" aria-hidden="true"></span>
+        <span class="text-sm font-medium tracking-wide text-slate-300">Minimalist Focus</span>
+      </div>
+      <div class="flex items-center gap-3" aria-label="Focus sessions completed today">
+        <div id="cycleDots" class="flex gap-1.5" aria-hidden="true"></div>
+        <p id="sessionCount" class="tabular text-xs text-slate-500">0 today</p>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main id="main" class="grid flex-1 items-center gap-10 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
+
+      <!-- Timer -->
+      <section aria-labelledby="timer-heading" class="flex flex-col items-center">
+        <h1 id="timer-heading" class="sr-only">Focus timer</h1>
+
+        <div role="group" aria-label="Timer mode" class="mb-8 inline-flex rounded-full bg-slate-800/50 p-1 ring-1 ring-white/5 backdrop-blur">
+          <button type="button" data-mode="focus" aria-pressed="true"
+            class="mode-btn rounded-full px-4 py-2 text-sm text-slate-400 transition-colors duration-300 hover:text-slate-200 aria-pressed:bg-slate-700/70 aria-pressed:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-5">
+            Focus
+          </button>
+          <button type="button" data-mode="short" aria-pressed="false"
+            class="mode-btn rounded-full px-4 py-2 text-sm text-slate-400 transition-colors duration-300 hover:text-slate-200 aria-pressed:bg-slate-700/70 aria-pressed:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-5">
+            <span class="sm:hidden">Short</span><span class="hidden sm:inline">Short Break</span>
+          </button>
+          <button type="button" data-mode="long" aria-pressed="false"
+            class="mode-btn rounded-full px-4 py-2 text-sm text-slate-400 transition-colors duration-300 hover:text-slate-200 aria-pressed:bg-slate-700/70 aria-pressed:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-5">
+            <span class="sm:hidden">Long</span><span class="hidden sm:inline">Long Break</span>
+          </button>
+        </div>
+
+        <div id="ringWrap" class="relative aspect-square w-[min(76vw,340px)] lg:w-[min(36vw,400px)]"
+             role="progressbar" aria-label="Session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="ring-glow pointer-events-none absolute inset-[12%] rounded-full bg-[var(--accent-soft)] blur-3xl" aria-hidden="true"></div>
+          <svg viewBox="0 0 100 100" class="relative h-full w-full -rotate-90" aria-hidden="true" focusable="false">
+            <circle class="ring-track" cx="50" cy="50" r="45" fill="none" stroke-width="1.6"></circle>
+            <circle id="ring" class="ring-progress" cx="50" cy="50" r="45" fill="none" stroke-width="1.6"
+                    stroke-linecap="round" stroke-dasharray="282.743" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <p id="time" role="timer" aria-live="off" aria-atomic="true"
+               class="tabular text-6xl font-extralight tracking-tight text-slate-50 sm:text-7xl lg:text-8xl">25:00</p>
+            <p id="modeLabel" class="mt-3 text-[11px] uppercase tracking-[0.32em] text-slate-500">Focus</p>
+          </div>
+          <div id="flash" class="pointer-events-none absolute inset-0 rounded-full opacity-0 ring-2 ring-[var(--accent)]" aria-hidden="true"></div>
+        </div>
+
+        <div class="mt-10 flex items-center gap-5">
+          <button id="resetBtn" type="button" aria-label="Reset timer" title="Reset (R)"
+            class="grid h-12 w-12 place-items-center rounded-full text-slate-400 ring-1 ring-white/10 transition hover:bg-slate-800/60 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-95">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>
+            </svg>
+          </button>
+
+          <button id="toggleBtn" type="button" title="Start / Pause (Space)"
+            class="flex min-w-[9.5rem] items-center justify-center gap-2.5 rounded-full bg-[var(--accent)] px-8 py-4 text-base font-medium text-slate-900 shadow-lg shadow-black/20 transition-[background-color,transform] duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-100 focus-visible:ring-offset-4 focus-visible:ring-offset-[#0f172a] active:scale-[0.97]">
+            <svg id="playIcon" viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>
+            <svg id="pauseIcon" viewBox="0 0 24 24" class="hidden h-5 w-5" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>
+            <span id="toggleLabel">Start</span>
+          </button>
+
+          <button id="skipBtn" type="button" aria-label="Skip to next session" title="Skip"
+            class="grid h-12 w-12 place-items-center rounded-full text-slate-400 ring-1 ring-white/10 transition hover:bg-slate-800/60 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-95">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 5l10 7-10 7V5z"/><path d="M19 5v14"/>
+            </svg>
+          </button>
+        </div>
+
+        <details class="mt-8 w-full max-w-xs">
+          <summary class="mx-auto flex w-max cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
+            Customize durations
+            <svg class="chev h-3.5 w-3.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <form id="settingsForm" class="mt-4 grid grid-cols-3 gap-3" novalidate>
+            <label class="flex flex-col items-center gap-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+              Focus
+              <input name="focus" type="number" inputmode="numeric" min="1" max="180" step="1"
+                class="tabular w-full rounded-xl bg-slate-800/50 px-2 py-2.5 text-center text-base text-slate-100 ring-1 ring-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]">
+            </label>
+            <label class="flex flex-col items-center gap-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+              Short
+              <input name="short" type="number" inputmode="numeric" min="1" max="180" step="1"
+                class="tabular w-full rounded-xl bg-slate-800/50 px-2 py-2.5 text-center text-base text-slate-100 ring-1 ring-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]">
+            </label>
+            <label class="flex flex-col items-center gap-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+              Long
+              <input name="long" type="number" inputmode="numeric" min="1" max="180" step="1"
+                class="tabular w-full rounded-xl bg-slate-800/50 px-2 py-2.5 text-center text-base text-slate-100 ring-1 ring-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]">
+            </label>
+            <p class="col-span-3 text-center text-[11px] text-slate-600">Minutes · 1–180</p>
+          </form>
+        </details>
+      </section>
+
+      <!-- Side panel -->
+      <section aria-label="Focus and ambience" class="mx-auto w-full max-w-md space-y-5 lg:mx-0">
+
+        <!-- Single core task -->
+        <div class="rounded-3xl bg-slate-800/30 p-6 ring-1 ring-white/5 backdrop-blur sm:p-7">
+          <label for="task" class="block text-sm text-slate-400">What is your main focus right now?</label>
+          <div class="mt-3 flex items-center gap-2">
+            <input id="task" type="text" maxlength="140" autocomplete="off" spellcheck="true" enterkeyhint="done"
+              placeholder="One thing. Just one."
+              class="w-full rounded-none border-0 border-b border-slate-700 bg-transparent px-0 py-2 text-xl text-slate-50 placeholder:text-slate-600 transition-colors focus:border-[var(--accent)] focus:outline-none focus:ring-0">
+            <button id="clearTask" type="button" aria-label="Clear main focus"
+              class="hidden h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-slate-700/50 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <p id="taskSaved" class="mt-2 h-4 text-xs text-slate-600 opacity-0 transition-opacity duration-500" aria-hidden="true">Saved</p>
+        </div>
+
+        <!-- Ambient sound -->
+        <div class="rounded-3xl bg-slate-800/30 p-6 ring-1 ring-white/5 backdrop-blur sm:p-7">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm text-slate-400">Ambient sound</h2>
+            <span id="soundState" class="flex items-center gap-2 text-xs text-slate-600">
+              <span id="soundDot" class="h-1.5 w-1.5 rounded-full bg-slate-600" aria-hidden="true"></span>
+              <span id="soundStateText">Off</span>
+            </span>
+          </div>
+
+          <div role="group" aria-label="Ambient sound type" class="mt-4 grid grid-cols-3 gap-2">
+            <button type="button" data-sound="brown" aria-pressed="false"
+              class="sound-btn rounded-2xl bg-slate-800/40 px-3 py-3 text-sm text-slate-400 ring-1 ring-white/5 transition hover:text-slate-200 aria-pressed:bg-[var(--accent-soft)] aria-pressed:text-slate-50 aria-pressed:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-[0.97]">
+              Brown
+            </button>
+            <button type="button" data-sound="white" aria-pressed="false"
+              class="sound-btn rounded-2xl bg-slate-800/40 px-3 py-3 text-sm text-slate-400 ring-1 ring-white/5 transition hover:text-slate-200 aria-pressed:bg-[var(--accent-soft)] aria-pressed:text-slate-50 aria-pressed:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-[0.97]">
+              White
+            </button>
+            <button type="button" data-sound="rain" aria-pressed="false"
+              class="sound-btn rounded-2xl bg-slate-800/40 px-3 py-3 text-sm text-slate-400 ring-1 ring-white/5 transition hover:text-slate-200 aria-pressed:bg-[var(--accent-soft)] aria-pressed:text-slate-50 aria-pressed:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-[0.97]">
+              Rain
+            </button>
+          </div>
+
+          <div class="mt-6 flex items-center gap-4">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+            </svg>
+            <input id="volume" type="range" min="0" max="100" step="1" value="50" class="range" aria-label="Ambient sound volume">
+            <output id="volumeValue" for="volume" class="tabular w-10 shrink-0 text-right text-xs text-slate-500">50%</output>
+          </div>
+
+          <label class="mt-6 flex cursor-pointer items-center justify-between gap-4 border-t border-white/5 pt-5 text-sm text-slate-400">
+            <span>Gentle chime when time is up</span>
+            <span class="relative inline-flex">
+              <input id="chimeToggle" type="checkbox" class="peer sr-only" checked>
+              <span class="h-6 w-11 rounded-full bg-slate-700 transition-colors peer-checked:bg-[var(--accent)] peer-focus-visible:ring-2 peer-focus-visible:ring-slate-100 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0f172a]"></span>
+              <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-100 shadow transition-transform peer-checked:translate-x-5"></span>
+            </span>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="flex flex-col items-center gap-4 border-t border-white/5 py-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
+      <p class="hidden md:block">
+        <kbd class="rounded bg-slate-800/70 px-1.5 py-0.5 font-sans text-slate-400">Space</kbd> start / pause ·
+        <kbd class="rounded bg-slate-800/70 px-1.5 py-0.5 font-sans text-slate-400">R</kbd> reset ·
+        <kbd class="rounded bg-slate-800/70 px-1.5 py-0.5 font-sans text-slate-400">1</kbd>
+        <kbd class="rounded bg-slate-800/70 px-1.5 py-0.5 font-sans text-slate-400">2</kbd>
+        <kbd class="rounded bg-slate-800/70 px-1.5 py-0.5 font-sans text-slate-400">3</kbd> modes
+      </p>
+      <p class="md:hidden">Stay with one thing.</p>
+
+      <!-- ============================================================
+           BUY ME A COFFEE — PLACEHOLDER
+           Paste your Buy Me a Coffee button inside #bmc-slot, e.g.:
+           <a href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank" rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-full bg-slate-800/60 px-4 py-2 text-slate-300 ring-1 ring-white/10 hover:text-slate-50">
+             ☕ Buy me a coffee
+           </a>
+           Or use the official widget script provided by Buy Me a Coffee.
+           ============================================================ -->
+      <div id="bmc-slot" class="min-h-[1px]"></div>
+    </footer>
+  </div>
+
+  <!-- Screen reader announcements -->
+  <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    /* ---------------- Config ---------------- */
+    const APP_NAME = 'Minimalist Focus';
+    const CIRC = 2 * Math.PI * 45;
+    const LONG_BREAK_EVERY = 4;
+    const DEFAULT_DURATIONS = { focus: 25, short: 5, long: 15 };
+
+    const MODES = {
+      focus: { label: 'Focus',       accent: '#a5b4fc', soft: 'rgba(165,180,252,0.12)' },
+      short: { label: 'Short Break', accent: '#6ee7b7', soft: 'rgba(110,231,183,0.11)' },
+      long:  { label: 'Long Break',  accent: '#7dd3fc', soft: 'rgba(125,211,252,0.11)' }
+    };
+
+    const KEYS = {
+      task: 'mf.task',
+      durations: 'mf.durations',
+      volume: 'mf.volume',
+      chime: 'mf.chime',
+      sessions: 'mf.sessions',
+      timer: 'mf.timer'
+    };
+
+    /* ---------------- Safe storage ---------------- */
+    const store = {
+      get(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw === null ? fallback : JSON.parse(raw);
+        } catch { return fallback; }
+      },
+      set(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ }
+      }
+    };
+
+    /* ---------------- DOM ---------------- */
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    const el = {
+      root: document.documentElement,
+      time: $('#time'),
+      ring: $('#ring'),
+      ringWrap: $('#ringWrap'),
+      flash: $('#flash'),
+      modeLabel: $('#modeLabel'),
+      modeBtns: $$('.mode-btn'),
+      toggleBtn: $('#toggleBtn'),
+      toggleLabel: $('#toggleLabel'),
+      playIcon: $('#playIcon'),
+      pauseIcon: $('#pauseIcon'),
+      resetBtn: $('#resetBtn'),
+      skipBtn: $('#skipBtn'),
+      settingsForm: $('#settingsForm'),
+      sessionCount: $('#sessionCount'),
+      cycleDots: $('#cycleDots'),
+      task: $('#task'),
+      clearTask: $('#clearTask'),
+      taskSaved: $('#taskSaved'),
+      soundBtns: $$('.sound-btn'),
+      soundStateText: $('#soundStateText'),
+      soundDot: $('#soundDot'),
+      volume: $('#volume'),
+      volumeValue: $('#volumeValue'),
+      chimeToggle: $('#chimeToggle'),
+      announcer: $('#announcer'),
+      metaTheme: document.querySelector('meta[name="theme-color"]')
+    };
+
+    const announce = (msg) => {
+      el.announcer.textContent = '';
+      requestAnimationFrame(() => { el.announcer.textContent = msg; });
+    };
+
+    /* ---------------- Durations ---------------- */
+    const clampMinutes = (v, fallback) => {
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) && n >= 1 ? Math.min(n, 180) : fallback;
+    };
+    const savedDurations = store.get(KEYS.durations, {}) || {};
+    const durations = {
+      focus: clampMinutes(savedDurations.focus, DEFAULT_DURATIONS.focus),
+      short: clampMinutes(savedDurations.short, DEFAULT_DURATIONS.short),
+      long:  clampMinutes(savedDurations.long,  DEFAULT_DURATIONS.long)
+    };
+
+    /* ---------------- Sessions (per day) ---------------- */
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    let sessions = store.get(KEYS.sessions, null);
+    if (!sessions || sessions.date !== todayKey()) sessions = { date: todayKey(), count: 0 };
+
+    function renderSessions() {
+      if (sessions.date !== todayKey()) sessions = { date: todayKey(), count: 0 };
+      const n = sessions.count;
+      el.sessionCount.textContent = `${n} today`;
+      const inCycle = n % LONG_BREAK_EVERY;
+      const filled = n > 0 && inCycle === 0 ? LONG_BREAK_EVERY : inCycle;
+      el.cycleDots.innerHTML = Array.from({ length: LONG_BREAK_EVERY }, (_, i) =>
+        `<span class="h-1.5 w-1.5 rounded-full transition-colors duration-500 ${i < filled ? 'bg-[var(--accent)]' : 'bg-slate-700'}"></span>`
+      ).join('');
+    }
+
+    /* ---------------- Timer state ---------------- */
+    const state = {
+      mode: 'focus',
+      remaining: durations.focus * 60000,
+      endAt: null,
+      running: false,
+      tickId: null
+    };
+
+    const totalMs = (mode = state.mode) => durations[mode] * 60000;
+
+    const fmt = (ms) => {
+      const t = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(t / 60);
+      const s = t % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+
+    function saveTimer() {
+      store.set(KEYS.timer, {
+        mode: state.mode,
+        remaining: state.remaining,
+        endAt: state.running ? state.endAt : null,
+        running: state.running
+      });
+    }
+
+    function render() {
+      const text = fmt(state.remaining);
+      if (el.time.textContent !== text) el.time.textContent = text;
+
+      const total = totalMs();
+      const elapsed = Math.min(1, Math.max(0, 1 - state.remaining / total));
+      el.ring.style.strokeDashoffset = (CIRC * elapsed).toFixed(3);
+      el.ring.style.opacity = state.remaining <= 0 ? '0' : '1';
+      el.ringWrap.setAttribute('aria-valuenow', String(Math.round(elapsed * 100)));
+      el.ringWrap.setAttribute('aria-valuetext', `${text} remaining`);
+
+      document.title = `(${text}) ${MODES[state.mode].label} - ${APP_NAME}`;
+    }
+
+    function renderControls() {
+      const running = state.running;
+      el.toggleLabel.textContent = running ? 'Pause' : (state.remaining < totalMs() && state.remaining > 0 ? 'Resume' : 'Start');
+      el.toggleBtn.setAttribute('aria-label', running ? 'Pause timer' : 'Start timer');
+      el.playIcon.classList.toggle('hidden', running);
+      el.pauseIcon.classList.toggle('hidden', !running);
+      el.ringWrap.classList.toggle('is-running', running);
+      el.time.classList.toggle('pulse', !running && state.remaining < totalMs() && state.remaining > 0);
+    }
+
+    function applyTheme() {
+      const m = MODES[state.mode];
+      el.root.style.setProperty('--accent', m.accent);
+      el.root.style.setProperty('--accent-soft', m.soft);
+      el.modeLabel.textContent = m.label;
+      el.modeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)));
+    }
+
+    function stopTicking() {
+      if (state.tickId) clearInterval(state.tickId);
+      state.tickId = null;
+    }
+
+    function tick() {
+      if (!state.running) return;
+      state.remaining = Math.max(0, state.endAt - Date.now());
+      render();
+      if (state.remaining <= 0) complete();
+    }
+
+    function startTicking() {
+      stopTicking();
+      state.tickId = setInterval(tick, 250);
+    }
+
+    function start() {
+      if (state.running) return;
+      audio.unlock(); // user gesture — unlocks audio on Safari/iOS
+      if (state.remaining <= 0) state.remaining = totalMs();
+      state.endAt = Date.now() + state.remaining;
+      state.running = true;
+      startTicking();
+      renderControls();
+      saveTimer();
+      announce(`${MODES[state.mode].label} started, ${fmt(state.remaining)} remaining`);
+    }
+
+    function pause() {
+      if (!state.running) return;
+      state.remaining = Math.max(0, state.endAt - Date.now());
+      state.running = false;
+      stopTicking();
+      render();
+      renderControls();
+      saveTimer();
+      announce(`Paused at ${fmt(state.remaining)}`);
+    }
+
+    function toggle() { state.running ? pause() : start(); }
+
+    function reset() {
+      stopTicking();
+      state.running = false;
+      state.remaining = totalMs();
+      render();
+      renderControls();
+      saveTimer();
+      announce(`${MODES[state.mode].label} reset to ${fmt(state.remaining)}`);
+    }
+
+    function setMode(mode, { announceIt = true } = {}) {
+      if (!MODES[mode]) return;
+      stopTicking();
+      state.running = false;
+      state.mode = mode;
+      state.remaining = totalMs();
+      applyTheme();
+      render();
+      renderControls();
+      renderSessions();
+      saveTimer();
+      if (announceIt) announce(`${MODES[mode].label} mode, ${fmt(state.remaining)}`);
+    }
+
+    function nextMode() {
+      if (state.mode !== 'focus') return 'focus';
+      return sessions.count > 0 && sessions.count % LONG_BREAK_EVERY === 0 ? 'long' : 'short';
+    }
+
+    function complete({ quiet = false } = {}) {
+      stopTicking();
+      state.running = false;
+      const finished = state.mode;
+
+      if (finished === 'focus') {
+        if (sessions.date !== todayKey()) sessions = { date: todayKey(), count: 0 };
+        sessions.count += 1;
+        store.set(KEYS.sessions, sessions);
+      }
+
+      if (!quiet) {
+        if (el.chimeToggle.checked) audio.chime();
+        el.flash.classList.remove('flash');
+        void el.flash.offsetWidth;
+        el.flash.classList.add('flash');
+        if (navigator.vibrate) { try { navigator.vibrate([120, 80, 120]); } catch { /* ignore */ } }
+      }
+
+      const next = nextMode();
+      setMode(next, { announceIt: false });
+      announce(`${MODES[finished].label} complete. Up next: ${MODES[next].label}.`);
+    }
+
+    function skip() {
+      const next = nextMode();
+      setMode(next);
+    }
+
+    /* ---------------- Restore timer across refresh ---------------- */
+    (function restoreTimer() {
+      const saved = store.get(KEYS.timer, null);
+      if (!saved || !MODES[saved.mode]) { applyTheme(); render(); renderControls(); return; }
+      state.mode = saved.mode;
+      applyTheme();
+      if (saved.running && typeof saved.endAt === 'number') {
+        const left = saved.endAt - Date.now();
+        if (left > 0) {
+          state.remaining = left;
+          state.endAt = saved.endAt;
+          state.running = true;
+          startTicking();
+        } else {
+          state.remaining = 0;
+          complete({ quiet: true });
+          return;
+        }
+      } else if (typeof saved.remaining === 'number' && saved.remaining > 0 && saved.remaining <= totalMs()) {
+        state.remaining = saved.remaining;
+      } else {
+        state.remaining = totalMs();
+      }
+      render();
+      renderControls();
+    })();
+
+    /* ---------------- Settings ---------------- */
+    ['focus', 'short', 'long'].forEach((k) => { el.settingsForm.elements[k].value = durations[k]; });
+
+    el.settingsForm.addEventListener('change', (e) => {
+      const input = e.target;
+      const key = input.name;
+      if (!(key in durations)) return;
+      const val = clampMinutes(input.value, durations[key]);
+      input.value = val;
+      if (val === durations[key]) return;
+      durations[key] = val;
+      store.set(KEYS.durations, durations);
+      if (key === state.mode && !state.running) {
+        state.remaining = totalMs();
+        render();
+        renderControls();
+        saveTimer();
+      }
+      announce(`${MODES[key].label} set to ${val} minutes`);
+    });
+    el.settingsForm.addEventListener('submit', (e) => e.preventDefault());
+
+    /* ---------------- Timer events ---------------- */
+    el.toggleBtn.addEventListener('click', toggle);
+    el.resetBtn.addEventListener('click', reset);
+    el.skipBtn.addEventListener('click', skip);
+    el.modeBtns.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) { renderSessions(); tick(); }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.closest('input, textarea, select, button, summary, [contenteditable="true"]'))) return;
+      switch (e.key) {
+        case ' ':
+        case 'Spacebar':
+          e.preventDefault(); toggle(); break;
+        case 'r': case 'R': reset(); break;
+        case '1': setMode('focus'); break;
+        case '2': setMode('short'); break;
+        case '3': setMode('long'); break;
+      }
+    });
+
+    /* ---------------- Main focus (task) ---------------- */
+    el.task.value = store.get(KEYS.task, '') || '';
+    const syncClear = () => {
+      const has = el.task.value.trim().length > 0;
+      el.clearTask.classList.toggle('hidden', !has);
+      el.clearTask.classList.toggle('grid', has);
+    };
+    syncClear();
+
+    let taskTimer = null, savedHideTimer = null;
+    const saveTask = () => {
+      store.set(KEYS.task, el.task.value);
+      el.taskSaved.classList.remove('opacity-0');
+      clearTimeout(savedHideTimer);
+      savedHideTimer = setTimeout(() => el.taskSaved.classList.add('opacity-0'), 1400);
+    };
+    el.task.addEventListener('input', () => {
+      syncClear();
+      clearTimeout(taskTimer);
+      taskTimer = setTimeout(saveTask, 350);
+    });
+    el.task.addEventListener('blur', () => { clearTimeout(taskTimer); store.set(KEYS.task, el.task.value); });
+    el.task.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.task.blur(); });
+    el.clearTask.addEventListener('click', () => {
+      el.task.value = '';
+      store.set(KEYS.task, '');
+      syncClear();
+      el.task.focus();
+      announce('Main focus cleared');
+    });
+
+    /* ---------------- Audio engine (Web Audio API) ---------------- */
+    const audio = (() => {
+      let ctx = null, master = null, ambientBus = null, current = null;
+      const buffers = {};
+      let volume = 0.5;
+
+      function ensure() {
+        if (!ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.9;
+          master.connect(ctx.destination);
+          ambientBus = ctx.createGain();
+          ambientBus.gain.value = volume * volume;
+          ambientBus.connect(master);
+        }
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        return ctx;
+      }
+
+      // Builds a seamless looping noise buffer with an equal-power crossfade at the seam.
+      function makeBuffer(type) {
+        const sr = ctx.sampleRate;
+        const len = Math.floor(sr * 8);
+        const fade = Math.floor(sr * 0.5);
+        const raw = new Float32Array(len + fade);
+
+        if (type === 'white') {
+          for (let i = 0; i < raw.length; i++) raw[i] = (Math.random() * 2 - 1) * 0.3;
+        } else if (type === 'brown') {
+          let last = 0;
+          for (let i = 0; i < raw.length; i++) {
+            const w = Math.random() * 2 - 1;
+            last = (last + 0.02 * w) / 1.02;
+            raw[i] = last * 3.2;
+          }
+        } else { // rain: pink-noise bed + sparse droplets
+          let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+          let drop = 0, dropDecay = 0;
+          const dropRate = 55 / sr;
+          for (let i = 0; i < raw.length; i++) {
+            const w = Math.random() * 2 - 1;
+            b0 = 0.99886 * b0 + w * 0.0555179;
+            b1 = 0.99332 * b1 + w * 0.0750759;
+            b2 = 0.96900 * b2 + w * 0.1538520;
+            b3 = 0.86650 * b3 + w * 0.3104856;
+            b4 = 0.55000 * b4 + w * 0.5329522;
+            b5 = -0.7616 * b5 - w * 0.0168980;
+            const pink = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+            b6 = w * 0.115926;
+
+            if (Math.random() < dropRate) {
+              drop = 0.08 + Math.random() * 0.22;
+              dropDecay = Math.exp(-1 / (sr * (0.0015 + Math.random() * 0.004)));
+            }
+            const droplet = drop * (Math.random() * 2 - 1);
+            drop *= dropDecay;
+            raw[i] = pink * 0.85 + droplet;
+          }
+        }
+
+        const buffer = ctx.createBuffer(1, len, sr);
+        const out = buffer.getChannelData(0);
+        for (let i = 0; i < len; i++) out[i] = raw[i];
+        for (let i = 0; i < fade; i++) {
+          const x = i / fade;
+          out[i] = raw[i] * Math.sin(x * Math.PI / 2) + raw[len + i] * Math.cos(x * Math.PI / 2);
+        }
+        return buffer;
+      }
+
+      function stopCurrent() {
+        if (!current || !ctx) return;
+        const { src, out, extras } = current;
+        const t = ctx.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setValueAtTime(out.gain.value, t);
+        out.gain.linearRampToValueAtTime(0, t + 0.6);
+        try { src.stop(t + 0.65); } catch { /* already stopped */ }
+        extras.forEach((n) => { try { n.stop(t + 0.65); } catch { /* ignore */ } });
+        src.onended = () => { try { out.disconnect(); } catch { /* ignore */ } };
+        current = null;
+      }
+
+      function play(type) {
+        const c = ensure();
+        if (!c) return false;
+        stopCurrent();
+
+        const src = c.createBufferSource();
+        src.buffer = buffers[type] || (buffers[type] = makeBuffer(type));
+        src.loop = true;
+
+        const out = c.createGain();
+        out.gain.setValueAtTime(0, c.currentTime);
+        out.gain.linearRampToValueAtTime(1, c.currentTime + 1.2);
+
+        const extras = [];
+        let node = src;
+
+        if (type === 'white') {
+          const lp = c.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 9000; lp.Q.value = 0.5;
+          const trim = c.createGain(); trim.gain.value = 0.55;
+          node.connect(lp); lp.connect(trim); node = trim;
+        } else if (type === 'brown') {
+          const lp = c.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.3;
+          const trim = c.createGain(); trim.gain.value = 1.0;
+          node.connect(lp); lp.connect(trim); node = trim;
+        } else {
+          const hp = c.createBiquadFilter();
+          hp.type = 'highpass'; hp.frequency.value = 400; hp.Q.value = 0.4;
+          const lp = c.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 7500; lp.Q.value = 0.4;
+          const mod = c.createGain(); mod.gain.value = 0.9;
+          const lfo = c.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.07;
+          const lfoDepth = c.createGain(); lfoDepth.gain.value = 0.18;
+          lfo.connect(lfoDepth); lfoDepth.connect(mod.gain);
+          lfo.start();
+          extras.push(lfo);
+          node.connect(hp); hp.connect(lp); lp.connect(mod); node = mod;
+        }
+
+        node.connect(out);
+        out.connect(ambientBus);
+        src.start();
+        current = { type, src, out, extras };
+        return true;
+      }
+
+      function setVolume(v) {
+        volume = Math.min(1, Math.max(0, v));
+        if (ctx && ambientBus) ambientBus.gain.setTargetAtTime(volume * volume, ctx.currentTime, 0.06);
+      }
+
+      // Soft, bell-like three-note chime
+      function chime() {
+        const c = ensure();
+        if (!c) return;
+        const t0 = c.currentTime + 0.05;
+        const notes = [[523.25, 0], [659.25, 0.22], [783.99, 0.44], [1046.5, 0.7]];
+        const bus = c.createGain();
+        bus.gain.value = 0.9;
+        bus.connect(master);
+
+        notes.forEach(([freq, delay], idx) => {
+          const t = t0 + delay;
+          const peak = idx === notes.length - 1 ? 0.09 : 0.14;
+          [[1, 1], [2.01, 0.18], [3.0, 0.06]].forEach(([mult, amt]) => {
+            const o = c.createOscillator();
+            const g = c.createGain();
+            o.type = 'sine';
+            o.frequency.value = freq * mult;
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * amt), t + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + (mult === 1 ? 2.6 : 1.2));
+            o.connect(g); g.connect(bus);
+            o.start(t);
+            o.stop(t + 2.7);
+          });
+        });
+
+        // Gently duck the ambient sound while the chime rings
+        if (ambientBus) {
+          const now = c.currentTime;
+          const base = volume * volume;
+          ambientBus.gain.cancelScheduledValues(now);
+          ambientBus.gain.setTargetAtTime(base * 0.35, now, 0.1);
+          ambientBus.gain.setTargetAtTime(base, now + 2.4, 0.6);
+        }
+      }
+
+      return {
+        unlock: ensure,
+        play,
+        stop: stopCurrent,
+        chime,
+        setVolume,
+        get playing() { return current ? current.type : null; }
+      };
+    })();
+
+    /* ---------------- Sound UI ---------------- */
+    const SOUND_LABELS = { brown: 'Brown noise', white: 'White noise', rain: 'Rain' };
+
+    function renderSound() {
+      const playing = audio.playing;
+      el.soundBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sound === playing)));
+      el.soundStateText.textContent = playing ? SOUND_LABELS[playing] : 'Off';
+      el.soundDot.className = `h-1.5 w-1.5 rounded-full ${playing ? 'bg-[var(--accent)] pulse' : 'bg-slate-600'}`;
+    }
+
+    el.soundBtns.forEach((b) => {
+      b.addEventListener('click', () => {
+        const type = b.dataset.sound;
+        if (audio.playing === type) {
+          audio.stop();
+          announce('Ambient sound off');
+        } else if (audio.play(type)) {
+          announce(`${SOUND_LABELS[type]} on`);
+        } else {
+          announce('Audio is not supported in this browser');
+        }
+        renderSound();
+      });
+    });
+
+    function syncVolumeUI(v) {
+      el.volume.value = v;
+      el.volume.style.setProperty('--fill', `${v}%`);
+      el.volumeValue.textContent = `${v}%`;
+    }
+    const savedVol = Number(store.get(KEYS.volume, 50));
+    const initialVol = Number.isFinite(savedVol) ? Math.min(100, Math.max(0, savedVol)) : 50;
+    syncVolumeUI(initialVol);
+    audio.setVolume(initialVol / 100);
+
+    el.volume.addEventListener('input', () => {
+      const v = Number(el.volume.value);
+      syncVolumeUI(v);
+      audio.setVolume(v / 100);
+      store.set(KEYS.volume, v);
+    });
+
+    el.chimeToggle.checked = store.get(KEYS.chime, true) !== false;
+    el.chimeToggle.addEventListener('change', () => {
+      store.set(KEYS.chime, el.chimeToggle.checked);
+      if (el.chimeToggle.checked) audio.chime(); // preview
+    });
+
+    /* ---------------- Init ---------------- */
+    renderSessions();
+    renderSound();
+  })();
+  </script>
+</body>
+</html>
 
