@@ -5,8 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="A minimalist, distraction-free focus dashboard with a Pomodoro timer, a single-task focus field and natively generated ambient sound.">
-  <title>Minimalist Focus</title>
+  <!-- ===================== SEO ===================== -->
+  <title>Study Timer – Free Pomodoro Timer &amp; Focus Dashboard | StudyTimers</title>
+  <meta name="description" content="Free online study timer and Pomodoro timer with 25/5/15 minute sessions, a single-task focus field and built-in brown noise, white noise and rain sounds. No sign-up, works on phone, iPad and desktop.">
+  <meta name="keywords" content="study timer, pomodoro timer, focus timer, online pomodoro, study with me timer, productivity timer, brown noise, white noise, rain sounds, odaklanma sayacı, pomodoro sayacı, ders çalışma sayacı, çalışma zamanlayıcısı">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="StudyTimers">
+  <meta name="application-name" content="StudyTimers">
+  <meta name="apple-mobile-web-app-title" content="StudyTimers">
+  <link rel="canonical" href="https://studytimers.netlify.app/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="StudyTimers">
+  <meta property="og:url" content="https://studytimers.netlify.app/">
+  <meta property="og:title" content="Study Timer – Free Pomodoro Timer &amp; Focus Dashboard">
+  <meta property="og:description" content="A calm, distraction-free Pomodoro study timer with focus tracking and built-in ambient sounds. Free, no sign-up.">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="tr_TR">
+  <!-- Optional: add a 1200x630 preview image to the site root and uncomment:
+  <meta property="og:image" content="https://studytimers.netlify.app/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="StudyTimers – minimalist Pomodoro study timer">
+  -->
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Study Timer – Free Pomodoro Timer &amp; Focus Dashboard">
+  <meta name="twitter:description" content="A calm, distraction-free Pomodoro study timer with focus tracking and built-in ambient sounds.">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "StudyTimers – Study Timer & Pomodoro Timer",
+    "url": "https://studytimers.netlify.app/",
+    "description": "Free online study timer and Pomodoro timer with focus, short break and long break modes, a single-task focus field and built-in ambient sounds.",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires a modern web browser with JavaScript enabled",
+    "inLanguage": ["en", "tr"],
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "featureList": [
+      "Pomodoro timer (25/5/15 minutes, customizable)",
+      "Countdown in browser tab title",
+      "Single main-focus task saved locally",
+      "Brown noise, white noise and rain ambient sounds",
+      "Gentle end-of-session chime"
+    ]
+  }
+  </script>
+  <!-- =================== /SEO ===================== -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23a5b4fc' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='42 60'/%3E%3C/svg%3E">
 
   <!-- ============================================================
@@ -132,7 +184,7 @@
     <header class="flex items-center justify-between pb-4 pt-6 sm:pt-8" style="padding-top: max(1.5rem, env(safe-area-inset-top));">
       <div class="flex items-center gap-2.5">
         <span id="modeDot" class="h-2 w-2 rounded-full bg-[var(--accent)] transition-colors duration-500" aria-hidden="true"></span>
-        <span class="text-sm font-medium tracking-wide text-slate-300">Minimalist Focus</span>
+        <span class="text-sm font-medium tracking-wide text-slate-300">StudyTimers</span>
       </div>
       <div class="flex items-center gap-3" aria-label="Focus sessions completed today">
         <div id="cycleDots" class="flex gap-1.5" aria-hidden="true"></div>
@@ -145,7 +197,7 @@
 
       <!-- Timer -->
       <section aria-labelledby="timer-heading" class="flex flex-col items-center">
-        <h1 id="timer-heading" class="sr-only">Focus timer</h1>
+        <h2 id="timer-heading" class="sr-only">Pomodoro focus timer</h2>
 
         <div role="group" aria-label="Timer mode" class="mb-8 inline-flex rounded-full bg-slate-800/50 p-1 ring-1 ring-white/5 backdrop-blur">
           <button type="button" data-mode="focus" aria-pressed="true"
@@ -290,6 +342,19 @@
       </section>
     </main>
 
+    <!-- About / SEO heading -->
+    <section aria-labelledby="page-title" class="mx-auto max-w-2xl px-2 pb-8 pt-10 text-center">
+      <h1 id="page-title" class="text-sm font-medium tracking-wide text-slate-400">
+        Study Timer &amp; Pomodoro Timer for Deep Focus
+      </h1>
+      <p class="mt-3 text-xs leading-relaxed text-slate-600">
+        StudyTimers is a free, distraction-free Pomodoro study timer: work in 25-minute focus sessions with short and long breaks, keep one main task in view, and play built-in brown noise, white noise or rain sounds — no sign-up needed.
+      </p>
+      <p class="mt-2 text-xs leading-relaxed text-slate-600" lang="tr">
+        Ücretsiz Pomodoro ve odaklanma sayacı: ders çalışırken dikkatini toplamak için sade bir çalışma zamanlayıcısı.
+      </p>
+    </section>
+
     <!-- Footer -->
     <footer class="flex flex-col items-center gap-4 border-t border-white/5 py-6 text-xs text-slate-600 sm:flex-row sm:justify-between">
       <p class="hidden md:block">
@@ -322,7 +387,8 @@
     'use strict';
 
     /* ---------------- Config ---------------- */
-    const APP_NAME = 'Minimalist Focus';
+    const APP_NAME = 'StudyTimers';
+    const BASE_TITLE = document.title;
     const CIRC = 2 * Math.PI * 45;
     const LONG_BREAK_EVERY = 4;
     const DEFAULT_DURATIONS = { focus: 25, short: 5, long: 15 };
@@ -462,7 +528,9 @@
       el.ringWrap.setAttribute('aria-valuenow', String(Math.round(elapsed * 100)));
       el.ringWrap.setAttribute('aria-valuetext', `${text} remaining`);
 
-      document.title = `(${text}) ${MODES[state.mode].label} - ${APP_NAME}`;
+      // Idle (full, unstarted session) keeps the SEO title; countdown shows once a session is in progress.
+      const inProgress = state.running || (state.remaining > 0 && state.remaining < total);
+      document.title = inProgress ? `(${text}) ${MODES[state.mode].label} - ${APP_NAME}` : BASE_TITLE;
     }
 
     function renderControls() {
@@ -928,4 +996,3 @@
   </script>
 </body>
 </html>
-
